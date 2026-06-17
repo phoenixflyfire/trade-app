@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Global Trade Hub</title>
+    <link rel="stylesheet" href="https://jsdelivr.net">
+</head>
+<body class="bg-light p-5">
+    <div class="container bg-white p-4 rounded shadow-sm" style="max-width: 600px; position: relative;">
+        <!-- System Status Badge -->
+        <div id="statusBadge" style="position: absolute; top: 15px; right: 15px; font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; background: rgba(0, 0, 0, 0.05); color: #555; font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(0,0,0,0.05); transition: all 0.3s ease;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #9ca3af; display: inline-block;" id="statusIndicator"></span>
+            <span id="systemName">Detecting...</span>: <span id="systemStatus" style="font-weight: 600; text-transform: uppercase; font-size: 0.7rem;">checking</span>
+        </div>
+        <h2>India to USA Trade Data</h2>
+        <p class="text-muted">Direct UN Comtrade API integration replacement for the Codelab.</p>
+        
+        <button id="loadBtn" class="btn btn-primary w-100 my-3">Fetch Latest Trade Values</button>
+        
+        <!-- Main Result Card -->
+        <div id="resultCard" class="card d-none mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Total Export Volume</h5>
+                <p class="card-text fs-3 fw-bold text-success" id="tradeValue">$0.00</p>
+                <small class="text-muted d-block" id="timestamp"></small>
+                <small class="text-muted d-block mb-3" id="dataSource"></small>
+                <button id="shareBtn" class="btn btn-outline-info btn-sm">Tweet This Insight</button>
+            </div>
+        </div>
+
+        <!-- Trajectory Audit History Log -->
+        <div class="card">
+            <div class="card-header fw-bold bg-dark text-white">
+                Fetch Trajectory Log History
+            </div>
+            <ul id="historyLog" class="list-group list-group-flush">
+                <li class="list-group-item text-muted text-center py-3" id="emptyLogMsg">
+                    No fetches recorded yet. Click the button above to begin tracking data updates.
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Fetch system status on load
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await fetch('/api/status');
+                const json = await res.json();
+                document.getElementById('systemName').innerText = json.system;
+                
+                const statusEl = document.getElementById('systemStatus');
+                statusEl.innerText = json.status;
+                
+                const indicatorEl = document.getElementById('statusIndicator');
+                if (json.status === 'online') {
+                    statusEl.style.color = '#10b981'; // emerald green
+                    indicatorEl.style.backgroundColor = '#10b981';
+                    document.getElementById('statusBadge').style.background = 'rgba(16, 185, 129, 0.1)';
+                    document.getElementById('statusBadge').style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                } else {
+                    statusEl.style.color = '#ef4444'; // red
+                    indicatorEl.style.backgroundColor = '#ef4444';
+                    document.getElementById('statusBadge').style.background = 'rgba(239, 68, 68, 0.1)';
+                    document.getElementById('statusBadge').style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                }
+            } catch (error) {
+                console.error(error);
+                document.getElementById('systemName').innerText = 'System';
+                document.getElementById('systemStatus').innerText = 'offline';
+                document.getElementById('systemStatus').style.color = '#ef4444';
+                document.getElementById('statusIndicator').style.backgroundColor = '#ef4444';
+            }
+        });
+
+        document.getElementById('loadBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('loadBtn');
+            btn.innerText = "Loading Trade Data...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/trade-data');
+                const json = await res.json();
+                
+                // 1. Generate full Date and Time stamp together
+                const now = new Date();
+                const fullDateTimeStamp = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+                
+                // 2. Format the numbers for the display
+                const formattedValue = new Intl.NumberFormat('en-US', { 
+                    style: 'currency', 
+                    currency: 'USD',
+                    maximumFractionDigits: 0 
+                }).format(json.primaryValue);
+                
+                // 3. Update main display card elements
+                document.getElementById('tradeValue').innerText = formattedValue;
+                document.getElementById('timestamp').innerText = `Fetched On: ${fullDateTimeStamp}`;
+                document.getElementById('dataSource').innerText = `Data Source: ${json.source}`;
+                document.getElementById('resultCard').classList.remove('d-none');
+                
+                // 4. Log the entry into the history ledger
+                const emptyMsg = document.getElementById('emptyLogMsg');
+                if (emptyMsg) emptyMsg.remove();
+                
+                const historyList = document.getElementById('historyLog');
+                const logItem = document.createElement('li');
+                logItem.className = "list-group-item d-flex justify-content-between align-items-center font-monospace small py-2";
+                logItem.innerHTML = `
+                    <span class="text-muted">[${fullDateTimeStamp}] Data Logged</span>
+                    <span class="fw-bold text-dark">${formattedValue}</span>
+                `;
+                
+                // Pushes new timestamps right to the top of the history box
+                historyList.insertBefore(logItem, historyList.firstChild);
+                
+                // Update Twitter share link
+                document.getElementById('shareBtn').onclick = () => {
+                    const text = encodeURIComponent(`Trade Dashboard Metric update: ${formattedValue}. Status checked: ${fullDateTimeStamp}. #ComtradeAPI`);
+                    window.open(`https://twitter.com{text}`, '_blank');
+                };
+
+            } catch (error) {
+                alert("Error logging trade data.");
+                console.error(error);
+            } finally {
+                btn.innerText = "Fetch Latest Trade Values";
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
